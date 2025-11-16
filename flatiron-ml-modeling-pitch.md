@@ -63,8 +63,6 @@ In practice, a wallet provider succeeds when the model achieves high recall on s
     * Pulling scam addresses from California’s public scam-wallet list.
     * Fetching on-chain transactions for those addresses plus background traffic.
 * **Initial data quality checks & EDA**
-
-⠀(Much of this is already in the notebook.)
 	* Inspect schema, types, and missingness.
 	* Run **timestamp normalization and sanity checks** (this already caught a major format leak between scam and non-scam records, which I’ll explicitly avoid in the final pipeline).
 	* Explore:
@@ -88,9 +86,7 @@ Data cleaning and feature engineering are already prototyped in the notebook; th
    * Explicitly verify that **timestamp formats themselves do not encode the label** (i.e., avoid the earlier bug where scam rows used a unique format).
 2. **Numeric cleaning (zero-loss)**
    * Coerce numeric string columns (value, gas, gas_price, etc.) to numeric, fill invalids with 0, retain all rows.
-3. **Aggregate to address-level feature table**
-
-⠀For each address (sender or receiver), compute:
+3. **Aggregate to address-level feature table** For each address (sender or receiver), compute:
 	* **Degree / connectivity**
 		* in_degree, out_degree, all_degree
 		* unique in_degree, unique out_degree
@@ -117,9 +113,7 @@ Data cleaning and feature engineering are already prototyped in the notebook; th
    * All other addresses: Scam = 0.
 5. **Export**
    * Save engineered feature table as CSV/Parquet for modeling.
-6. **scikit-learn pipeline**
-
-⠀Conceptually:
+6. **scikit-learn pipeline**⠀Conceptually:
 	* **Preprocessing:**
 		* Train/val/test split with **stratification** (≈70/15/15).
 		* **StandardScaler** for models that need scaling (logistic regression, MLP).
@@ -191,7 +185,6 @@ I will treat:
 
 ⠀
 ### Conceptual framework (PUML flowchart)
-
 
 ![Flowchart](./flowchart.png)
 
@@ -270,105 +263,3 @@ Assuming one project week left, here’s a concrete plan mapped to the rubric bu
 
 ⠀Implementing semi-supervised GAN approaches may require extra reading and careful experimentation; I’ll treat this as a **stretch goal**, not core scope, and document any partial progress.
 
-
-![Banner](https://github.com/LittleHouse75/flatiron-resources/raw/main/NevitsBanner.png)
-# Machine Learning Modeling and Pipeline: Synthetic Data for Modeling Fraud in Ethereum Transactions
-
-## 1. Business Problem Scenario
-
-### Business problem
-
-Fraud on Ethereum isn’t just some abstract issue buried in a block explorer. When people lose money, they lose confidence, and that erodes the whole point of having an open financial network. Wallet providers, exchanges, and analytics platforms all try to keep their own internal “bad address lists,” but these lists are private, uncoordinated, and often based on different internal rules. On top of that, scams evolve constantly, and simple rule‑based filters can only chase yesterday’s tricks.
-
-For a wallet provider, this creates a very real set of problems. Users may unknowingly send money to addresses that are already known to be malicious elsewhere. Providers carry reputational and compliance risk if they keep facilitating transfers to wallets tied to fraud. And fraud‑operations teams end up spending time manually triaging suspicious activity instead of doing deeper investigative work.
-
-### Business goal
-
-The goal of this project is straightforward: use transaction behavior to predict which Ethereum addresses are likely associated with scams before a user sends funds to them. A wallet provider could warn the user, escalate the case to an internal review queue, or fold the result into an evolving in‑house scam list. The key idea is to create an adaptive signal that doesn’t require sharing proprietary labels across companies.
-
-### Why machine learning?
-
-Ethereum generates an enormous stream of dense, time‑dependent, somewhat messy data. Human reviewers can only look at small slices of it, and scam patterns shift faster than rule systems can adapt. Some scams operate in timing bursts, others rely on specific gas‑price tricks, and many use recognizable fans of inbound transactions. Machine learning is simply better suited to spotting these irregular patterns at scale. A model can learn the behavioral fingerprints of scam addresses, retrain as new scam types appear, and score new addresses in real time.
-
-### Dataset description and relevance
-
-The main dataset comes from a publicly released benchmark of Ethereum transactions. It has roughly 70,000 labeled rows, each representing a single blockchain transaction. Every row includes standard Ethereum fields—things like hash, nonce, sender and receiver, value, gas usage, calldata, timestamps, block metadata—as well as the fields marking whether the sender or receiver is tied to a known scam (from_scam, to_scam) and whatever scam category is available (“phishing” and “scamming”).
-
-From these transactions, I build an address‑level feature table. This aggregates a wallet’s behavior over time: how often it transacts, how much value it tends to move, what time of day it sends or receives funds, how long it stays active, how bursty its habits are, and so on. An address is labeled **Scam = 1** if it ever appears in the scam fields of the source data.
-
-To check whether a model trained on this synthetic benchmark transfers to real‑world data, I’m also building a second evaluation dataset. The State of California’s Department of Financial Protection and Innovation publishes a public list of wallets tied to crypto scams. I’ll fetch the on‑chain activity for those addresses, mix that activity with background network traffic, and run the model against it. This gives me a much more realistic performance check.
-
-Together, these two datasets allow me to tune and test the model under clean conditions and then verify that the patterns it learns are still meaningful in the wild.
-
-### Success criteria
-
-On the technical side, I’m using **Average Precision (AP)** as my primary metric. It works well for heavily imbalanced problems like fraud detection because it evaluates how well the model ranks the rare positive cases across all thresholds. Secondary metrics—precision, recall, F1, ROC‑AUC—help validate that the model behaves sensibly when I choose an operational threshold.
-
-From a business point of view, success means catching a good percentage of scam addresses without overwhelming users or internal reviewers. If the model flags high‑risk addresses before transactions are sent, captures a meaningful share of scam‑related activity, and reduces manual review overhead, it’s doing its job.
-
----
-
-## 2. Problem‑Solving Process
-
-### Data acquisition and understanding
-
-I start with the benchmark dataset from the original research repository. To complement it, I pull published scam‑wallet addresses from California’s Crypto Scam Tracker and fetch their Ethereum transactions from a node provider. This gives me two distinct sources: synthetic benchmark data and real fraud data captured by a regulator.
-
-For EDA, I check schema consistency, look for missing or malformed values, and verify that the timestamp formats don’t accidentally encode the scam label (something I discovered early on). I examine distributions of timestamps, value, gas usage, inter‑transaction gaps, and differences in behavior between scam and non‑scam addresses. Time‑series plots, histograms, and simple comparisons help reveal what actually separates the two groups.
-
-### Data preparation and feature engineering
-
-Most of the feature‑engineering work is already drafted in my notebook. The cleaned, production version will:
-
-* Normalize timestamps into a single UTC format and convert them into numeric seconds‑since‑start.
-* Coerce numeric fields like value, gas, and gas_price into proper numeric types, keeping all rows.
-* Aggregate transactions into address‑level behavior summaries.
-
-For each address, I compute connectivity (in‑degree, out‑degree), transaction amounts, timing behavior (active duration, burstiness, inter‑transaction gaps), hourly patterns, gas‑usage tendencies, and a simple graph‑structure metric using the clustering coefficient. Scam labels come directly from the provided fields and category indicators.
-
-The final engineered dataset is saved as a clean CSV/Parquet file that feeds into the modeling stage.
-
-### Modeling strategy
-
-I begin with a small group of baseline models: Logistic Regression, Random Forest, ExtraTrees, XGBoost, and a lightweight MLP. These give me a sense of how both linear and non‑linear models handle the engineered features. In early experiments, XGBoost consistently produced the best precision‑recall behavior, so it’s my leading candidate.
-
-As a stretch goal, I’m exploring the SGAN‑based approach described in *ATD‑SGAN* (IEEE 2023). The idea is to generate additional synthetic minority‑class samples in a way that reflects real scam behavior. Depending on time, I may run a simplified version of this to see whether it improves calibration or ranking performance.
-
-For tuning, I’ll run RandomizedSearchCV with AP as the scoring metric. First, I’ll run a broad sweep over multiple models. Then, I’ll narrow in on the most promising XGBoost hyperparameters, especially depth, learning rate, subsampling, and the regularization parameters. Class imbalance is handled through `scale_pos_weight` or model‑specific class weighting.
-
-Evaluation includes AP, precision, recall, F1, ROC‑AUC, threshold curves, and calibration behavior. I’ll also test the final tuned model on the California external dataset to see how well it generalizes to real fraud.
-
-### Results interpretation and communication
-
-SHAP and feature importance plots help explain which behaviors push an address toward being classified as a scam. Some patterns already stand out: odd time‑of‑day activity, bursts of incoming transactions, unusual gas usage, and a distinctive recency pattern compared with normal accounts.
-
-For a non‑technical stakeholder, the takeaway is simpler: certain wallets behave in ways that consistently match the patterns seen in known scams. The model highlights those patterns so the product or fraud team can warn users or escalate reviews. PR curves, ROC curves, and a few illustrative examples make the findings easy to communicate.
-
-I may also include a mock UI screenshot showing how a “High‑Risk Address” warning could appear in a wallet application.
-
----
-
-## 3. Timeline and Scope (Mon–Fri)
-
-### Monday — Finalizing Problem and Data
-I’ll lock down the business framing, finish the clean EDA notebook (especially the fixed timestamp handling), and start building the California‑based dataset by scraping addresses and preparing the transaction‑fetching script.
-
-### Tuesday — EDA and Preprocessing
-I’ll complete EDA for both datasets and finalize the feature‑engineering module. By the end of the day, I expect to export a clean, address‑level dataset ready for modeling.
-
-### Wednesday — Baseline Models
-I’ll train the baseline models, compare their performance, and select the candidates worth tuning.
-
-### Thursday — Tuning and SHAP
-I’ll run the narrowed hyperparameter search on XGBoost, evaluate the tuned results, produce the performance plots, and generate SHAP explanations. If there’s time, I’ll run a small SGAN experiment.
-
-### Friday — Documentation and Final Checks
-I’ll polish the notebooks, write the technical and executive summaries, add visualizations, run the model against the California dataset, record the presentation, and prepare everything for submission.
-
----
-
-## Anticipated challenges
-
-A few areas may need extra attention: avoiding any label leakage from timestamp formats or other quirks in the synthetic data; choosing realistic thresholds that manage the tradeoff between false alarms and missed scams; dealing with domain shift when moving from synthetic data to the California dataset; and experimenting with SGANs, which may require additional reading.
-
-Overall, the aim is to deliver a clear, defensible approach that connects technical modeling work to a real business
