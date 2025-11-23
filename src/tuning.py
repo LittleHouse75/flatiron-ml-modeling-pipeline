@@ -33,7 +33,7 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
 from src import utilities as util
-from src.model_eval import get_probas, plot_all_evals
+from src.model_eval import get_probas, plot_all_evals,evaluate_split
 from src.seed_util import SEED
 
 # Make the project root importable when running notebooks from subfolders
@@ -41,48 +41,8 @@ sys.path.append(os.path.abspath(".."))
 
 
 # ============================================================
-# Small metric helpers (shared by both tuning entrypoints)
+# Small metric helpers
 # ============================================================
-def _evaluate_split(y_true: np.ndarray, y_prob: np.ndarray, threshold: float) -> Dict[str, Any]:
-    """
-    Compute classification metrics for a given probability vector and threshold.
-
-    Parameters
-    ----------
-    y_true : array-like
-        True binary labels (0/1).
-    y_prob : array-like
-        Predicted probabilities for the positive class.
-    threshold : float
-        Decision threshold used to convert probabilities into labels.
-
-    Returns
-    -------
-    dict
-        Dictionary containing accuracy, precision, recall, f1,
-        roc_auc, avg_precision, and the confusion matrix (cm).
-    """
-    y_pred = (y_prob >= threshold).astype(int)
-
-    metrics: Dict[str, Any] = dict(
-        accuracy=accuracy_score(y_true, y_pred),
-        precision=precision_score(y_true, y_pred, zero_division=0),
-        recall=recall_score(y_true, y_pred, zero_division=0),
-        f1=f1_score(y_true, y_pred, zero_division=0),
-    )
-
-    try:
-        metrics["roc_auc"] = roc_auc_score(y_true, y_prob)
-    except ValueError:
-        metrics["roc_auc"] = np.nan
-
-    try:
-        metrics["avg_precision"] = average_precision_score(y_true, y_prob)
-    except ValueError:
-        metrics["avg_precision"] = np.nan
-
-    metrics["cm"] = confusion_matrix(y_true, y_pred)
-    return metrics
 
 
 _METRIC_KEYS = ["accuracy", "precision", "recall", "f1", "roc_auc", "avg_precision"]
@@ -97,7 +57,7 @@ def _row_from_metrics(model_name: str, m: Dict[str, Any]) -> Dict[str, Any]:
     model_name : str
         Name of the model (e.g., "XGBoost").
     m : dict
-        Metrics dictionary as returned by `_evaluate_split`.
+        Metrics dictionary as returned by `evaluate_split`.
 
     Returns
     -------
@@ -348,9 +308,9 @@ def run_tuning(
         prob_val = get_probas(best_model, Xv)
         prob_test = get_probas(best_model, Xte)
 
-        train_m = _evaluate_split(y_train, prob_train, threshold=threshold)
-        val_m = _evaluate_split(y_val, prob_val, threshold=threshold)
-        test_m = _evaluate_split(y_test, prob_test, threshold=threshold)
+        train_m = evaluate_split(y_train, prob_train, threshold=threshold)
+        val_m = evaluate_split(y_val, prob_val, threshold=threshold)
+        test_m = evaluate_split(y_test, prob_test, threshold=threshold)
 
         tuned_rows.append(
             {
@@ -548,9 +508,9 @@ def run_xgb_narrow(
     prob_val = get_probas(best_xgb, X_val)
     prob_test = get_probas(best_xgb, X_test)
 
-    train_m = _evaluate_split(y_train, prob_train, threshold=threshold)
-    val_m = _evaluate_split(y_val, prob_val, threshold=threshold)
-    test_m = _evaluate_split(y_test, prob_test, threshold=threshold)
+    train_m = evaluate_split(y_train, prob_train, threshold=threshold)
+    val_m = evaluate_split(y_val, prob_val, threshold=threshold)
+    test_m = evaluate_split(y_test, prob_test, threshold=threshold)
 
     train_df = pd.DataFrame([_row_from_metrics("XGBoost (Narrow)", train_m)])
     val_df = pd.DataFrame([_row_from_metrics("XGBoost (Narrow)", val_m)])

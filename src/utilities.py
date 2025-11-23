@@ -65,24 +65,39 @@ def data_path(name: str) -> Path:
     return DATA_DIR / f"{name}.csv"
 
 
-def load_data(name: str) -> pd.DataFrame:
+def load_data(name: str, prefer_parquet: bool = True) -> pd.DataFrame:
     """
-    Load a CSV from `data/` given its base name (without `.csv`).
+    Load a dataset from `data/` given its base name (without `.csv`).
+
+    By default this will try to read a Parquet file first (``<name>.parquet``)
+    if it exists, and fall back to the CSV file (``<name>.csv``) otherwise.
 
     Parameters
     ----------
     name : str
-        Base name of the CSV file under `data/`.
+        Base name of the dataset under `data/` (no extension).
+    prefer_parquet : bool, default True
+        If True, attempt to load ``<name>.parquet`` first and fall back to CSV.
+        If False, always load from CSV.
 
     Returns
     -------
     pandas.DataFrame
         Loaded dataframe.
     """
-    path = data_path(name)
+    csv_path = data_path(name)
+    pq_path = csv_path.with_suffix(".parquet")
+
     print_heading("Loading Dataset")
-    print(f"Reading dataset from: {path}")
-    df = pd.read_csv(path)
+
+    if prefer_parquet and pq_path.exists():
+        print(f"Reading dataset from (Parquet): {pq_path}")
+        df = pd.read_parquet(pq_path)
+    else:
+        # Either Parquet is not preferred or not present; use CSV.
+        print(f"Reading dataset from (CSV): {csv_path}")
+        df = pd.read_csv(csv_path)
+
     print(
         f"Dataset loaded successfully with "
         f"{len(df):,} rows and {len(df.columns)} columns."

@@ -39,7 +39,7 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
 from src import utilities as util
-from src.model_eval import get_probas, plot_all_evals
+from src.model_eval import get_probas, plot_all_evals, evaluate_split
 from src.seed_util import SEED
 
 # Make the project root importable when running notebooks from subfolders
@@ -243,38 +243,9 @@ def run_baselines(
     )
     baseline_models.append(("MLP", mlp, "scaled"))
 
-    # --------------------------------------------------------
-    # 4. Split-level evaluation helper
-    # --------------------------------------------------------
-    def evaluate_split(y_true, y_prob, threshold: float = threshold):
-        """
-        Convert probabilities to labels at the given threshold and
-        compute standard classification metrics.
-        """
-        y_pred = (y_prob >= threshold).astype(int)
-
-        metrics = dict(
-            accuracy=accuracy_score(y_true, y_pred),
-            precision=precision_score(y_true, y_pred, zero_division=0),
-            recall=recall_score(y_true, y_pred, zero_division=0),
-            f1=f1_score(y_true, y_pred, zero_division=0),
-        )
-
-        try:
-            metrics["roc_auc"] = roc_auc_score(y_true, y_prob)
-        except ValueError:
-            metrics["roc_auc"] = np.nan
-
-        try:
-            metrics["avg_precision"] = average_precision_score(y_true, y_prob)
-        except ValueError:
-            metrics["avg_precision"] = np.nan
-
-        metrics["cm"] = confusion_matrix(y_true, y_pred)
-        return metrics
 
     # --------------------------------------------------------
-    # 5. Run all models
+    # 4. Run all models
     # --------------------------------------------------------
     if verbose:
         util.print_heading("Running Baseline Models")
@@ -344,7 +315,7 @@ def run_baselines(
         )
 
     # --------------------------------------------------------
-    # 6. Comparison tables (Train / Val / Test)
+    # 5. Comparison tables (Train / Val / Test)
     # --------------------------------------------------------
     def _split_table(split: str) -> pd.DataFrame:
         """

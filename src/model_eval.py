@@ -26,6 +26,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+from typing import Any, Dict, Tuple
 
 from src.seed_util import SEED
 
@@ -392,3 +393,71 @@ def precision_first_threshold_tuning(
     )
 
     return best_threshold, val_sweep_df, test_metrics
+
+# ============================================================
+# Split evaluation
+# ============================================================
+def evaluate_split(y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.5) -> Dict[str, Any]:
+    """
+    Compute classification metrics for a given probability vector and threshold.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels (0/1).
+    y_prob : array-like
+        Predicted probabilities for the positive class.
+    threshold : float
+        Decision threshold used to convert probabilities into labels.
+
+    Returns
+    -------
+    dict
+        Dictionary containing accuracy, precision, recall, f1,
+        roc_auc, avg_precision, and the confusion matrix (cm).
+    """
+    y_pred = (y_prob >= threshold).astype(int)
+
+    metrics: Dict[str, Any] = dict(
+        accuracy=accuracy_score(y_true, y_pred),
+        precision=precision_score(y_true, y_pred, zero_division=0),
+        recall=recall_score(y_true, y_pred, zero_division=0),
+        f1=f1_score(y_true, y_pred, zero_division=0),
+    )
+
+    try:
+        metrics["roc_auc"] = roc_auc_score(y_true, y_prob)
+    except ValueError:
+        metrics["roc_auc"] = np.nan
+
+    try:
+        metrics["avg_precision"] = average_precision_score(y_true, y_prob)
+    except ValueError:
+        metrics["avg_precision"] = np.nan
+
+    metrics["cm"] = confusion_matrix(y_true, y_pred)
+    return metrics
+
+
+def print_metrics_block(label, m):
+    """
+    Pretty-print a block of classification metrics.
+
+    Parameters
+    ----------
+    label : str
+        Title for the metrics block (e.g. "SGAN — Train").
+    m : Mapping[str, Any]
+        Dictionary of metric names to values. Scalar metrics are
+        printed as floats with 4 decimal places. If the key "cm"
+        is present, its value is treated as a confusion matrix and
+        printed on its own lines without float formatting.
+    """
+    print(f"\n{label}")
+    print("-" * len(label))
+    for k, v in m.items():
+        if k == "cm":
+            print(f"{k:>14}:")
+            print(v)
+        else:
+            print(f"{k:>14}: {v:0.4f}")
