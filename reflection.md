@@ -6,7 +6,7 @@ This project has been very iterative. A lot of things broke along the way—time
 
 I started with a single academic Ethereum dataset and a vague idea of “let’s model fraud.” The project eventually turned into: build address-level features, compare a **random address split** to a **time-based past→future split**, and then see whether the final model can say anything about a separate DFPI scam-wallet dataset. That arc only appeared after the time split broke my original results and forced me to rethink what problem I was actually solving.
 
-I’m also happy that the model I pickled isn’t just a benchmark toy. The tuned XGBoost model trained on the benchmark data shows real predictive power on the DFPI scam-wallet set, which suggests it learned patterns that carry over into the real world, not just quirks of the academic data.
+I’m also happy that the model I pickled isn’t just a benchmark toy. The tuned XGBoost model trained on the benchmark data shows real predictive power on the DFPI scam-wallet set, concentrating most DFPI-reported scams in the extreme high-risk tail even though the base rate is tiny. That suggests the model learned behavioral signals that carry over into the real world, not just quirks of the academic data.
 
 On the engineering side, I’m glad I took the time to clean up the code. The first notebook was huge and messy. By the end, I’d moved feature engineering, utilities, tuning, and evaluation into shared Python modules and split the work across several smaller notebooks (overview, EDA, random split, time split, external evaluation). That made the notebooks feel more like guided stories instead of giant code dumps, and it gave me a reusable pipeline for future datasets.
 

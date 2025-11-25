@@ -28,8 +28,11 @@ Compared to the original pitch, the project shifted from a broad “model zoo + 
       - Precision ≈ **0.91**, Recall ≈ **0.25**, F1 ≈ **0.39**  
       - Very **clean alerts** (91% of flagged addresses are scams) but the model **misses ~3 out of 4 scams** as patterns drift.
   - **DFPI external evaluation (no retraining, same features + tuned XGBoost)**  
-    - ROC AUC ≈ **0.97**, AP ≈ **0.90** on the **California DFPI scam-wallet dataset**.  
-    - Most DFPI-listed scams appear near the **top of the ranked list**, with few benign addresses mixed in.
+    - ROC AUC ≈ **0.98**, AP ≈ **0.11** on an extremely imbalanced DFPI dataset  
+      (~58 scams out of ~283k addresses).  
+    - At threshold 0.5: **Recall ≈ 0.90**, **FPR ≈ 0.5%**.  
+    - DFPI-listed scams appear in the **extreme right-hand tail** of the score distribution,  
+      meaning the model assigns them consistently high risk despite the domain shift.
 
 - **Updated interpretation vs original goal**
   - The original goal was “use ML (and possibly SGAN) to learn scam behavior and flag risky addresses.”  
